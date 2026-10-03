@@ -1,0 +1,555 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Mi diario</title>
+  <link rel="manifest" href="manifest.json">
+  <meta name="theme-color" content="#f2f2f7" media="(prefers-color-scheme: light)">
+  <meta name="theme-color" content="#000000" media="(prefers-color-scheme: dark)">
+  <link rel="apple-touch-icon" href="icon-192.png">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-title" content="Mi diario">
+
+  <!-- ============ 🎨 CSS ============ -->
+  <style>
+    :root { --fondo:#f2f2f7; --tarjeta:#fff; --texto:#1c1c1e; --suave:#8e8e93; --linea:#e5e5ea; --acento:#007aff; --peligro:#ff3b30; }
+    @media (prefers-color-scheme: dark) {
+      :root { --fondo:#000; --tarjeta:#1c1c1e; --texto:#fff; --suave:#8e8e93; --linea:#38383a; --acento:#0a84ff; --peligro:#ff453a; }
+    }
+    * { box-sizing: border-box; }
+    body { margin:0; background:var(--fondo); color:var(--texto); font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif; -webkit-font-smoothing:antialiased; }
+    .layout { max-width:520px; margin:0 auto; padding:48px 20px 40px; }
+    main { min-width:0; }
+    .pestanas { display:flex; background:var(--tarjeta); border-radius:12px; padding:3px; margin-bottom:20px; }
+    .pestanas button { flex:1; padding:8px; border-radius:9px; font-size:15px; }
+    .pestanas button.on { background:var(--fondo); font-weight:600; }
+    @media (max-width:899px) { .layout.v-graf #registro { display:none; } .layout:not(.v-graf) #graficas { display:none; } }
+    @media (min-width:900px) {
+      .layout { max-width:1080px; display:grid; grid-template-columns:minmax(0,500px) minmax(0,1fr); gap:28px; align-items:start; }
+      .pestanas { display:none; }
+      .panel { position:sticky; top:24px; }
+    }
+    /* Gráficas */
+    .seg { display:flex; background:var(--fondo); border-radius:10px; padding:2px; margin-bottom:14px; }
+    .seg button { flex:1; padding:7px; border-radius:8px; font-size:14px; }
+    .seg button.on { background:var(--tarjeta); font-weight:600; box-shadow:0 1px 3px rgba(0,0,0,.18); }
+    .panel h2 { font-size:17px; margin:0 0 14px; }
+    .fila-barra { display:grid; grid-template-columns:96px 1fr auto; gap:10px; align-items:center; margin-bottom:10px; font-size:14px; }
+    .pista { height:12px; background:var(--fondo); border-radius:6px; overflow:hidden; }
+    .barra { height:100%; border-radius:6px; }
+    .val { text-align:right; white-space:nowrap; }
+    .cmp { display:block; font-size:11px; } .sube { color:#34c759; } .baja { color:var(--peligro); }
+    .total { color:var(--suave); font-size:14px; margin:6px 0 0; }
+    .cols { display:flex; gap:6px; margin-bottom:18px; }
+    .col { flex:1; display:flex; flex-direction:column; align-items:center; gap:4px; cursor:pointer; }
+    .pila { width:100%; max-width:36px; height:130px; display:flex; flex-direction:column-reverse; background:var(--fondo); border-radius:8px; overflow:hidden; }
+    .hh { font-size:11px; color:var(--suave); height:14px; }
+    .dl { font-size:12px; color:var(--suave); }
+    .col.sel .dl { color:var(--acento); font-weight:700; }
+    .vacio-g { color:var(--suave); font-size:14px; padding:20px 0; text-align:center; }
+    button { font:inherit; cursor:pointer; border:none; background:none; color:inherit; }
+    button:focus-visible, input:focus-visible, select:focus-visible { outline:2px solid var(--acento); outline-offset:2px; }
+    h1 { font-size:32px; font-weight:700; letter-spacing:-.5px; margin:0 0 4px; }
+    .resumen { color:var(--suave); margin:0 0 20px; font-size:15px; min-height:1.2em; }
+    .tarjeta { background:var(--tarjeta); border-radius:14px; padding:14px; margin-bottom:16px; }
+
+    /* Calendario (todo círculo) */
+    .mes-barra { display:flex; align-items:center; justify-content:space-between; padding-bottom:8px; }
+    .mes-barra strong { font-size:17px; }
+    .mes-barra button { color:var(--acento); font-size:22px; width:36px; height:36px; border-radius:50%; }
+    .rejilla { display:grid; grid-template-columns:repeat(7,1fr); row-gap:4px; text-align:center; }
+    .dia-semana { font-size:12px; color:var(--suave); padding:4px 0; }
+    .dia { height:44px; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:3px; font-size:16px; }
+    .dia .num { width:30px; height:30px; display:grid; place-items:center; border-radius:50%; }
+    .dia.hoy .num { color:var(--acento); font-weight:700; }
+    .dia.elegido .num { background:var(--linea); }
+    .dia.hoy.elegido .num { background:var(--acento); color:#fff; }
+    .punto { width:6px; height:6px; border-radius:50%; }
+    .punto.con { background:var(--acento); }
+
+    /* Formulario */
+    .atajos { display:flex; flex-wrap:wrap; gap:8px; align-items:center; margin-bottom:12px; }
+    .chip { display:inline-flex; align-items:center; gap:4px; padding:7px 12px; border-radius:999px; background:var(--fondo); font-size:14px; }
+    .chip b { color:var(--peligro); font-weight:400; font-size:16px; padding-left:4px; }
+    .link { color:var(--acento); font-size:14px; padding:6px 4px; }
+    .campos { display:flex; flex-direction:column; gap:10px; }
+    .campos input[type=text], .campos select, .horas input { font:inherit; padding:12px 14px; border:none; border-radius:12px; background:var(--fondo); color:var(--texto); width:100%; }
+    .horas { display:flex; align-items:center; gap:8px; color:var(--suave); }
+    .horas input { flex:1; }
+    .check { display:flex; align-items:center; gap:8px; font-size:14px; color:var(--suave); }
+    .botones { display:flex; gap:10px; }
+    .primario { flex:1; padding:12px; border-radius:12px; background:var(--acento); color:#fff; font-weight:600; }
+    .secundario { padding:12px 16px; border-radius:12px; background:var(--fondo); }
+    .peligro { color:var(--peligro); }
+    .primario:active { opacity:.7; }
+
+    /* Lista de actividades */
+    ul { list-style:none; margin:0; padding:0; background:var(--tarjeta); border-radius:14px; overflow:hidden; }
+    li { display:flex; align-items:center; gap:12px; padding:14px 16px; border-bottom:1px solid var(--linea); cursor:pointer; border-left:5px solid var(--c); }
+    li:last-child { border-bottom:none; }
+    li .cuerpo { flex:1; min-width:0; }
+    li .sub { font-size:13px; color:var(--suave); margin-top:2px; }
+    .vacio { text-align:center; color:var(--suave); padding:28px 16px; cursor:default; border-left:none; }
+    .aviso { color:var(--suave); font-size:13px; margin:10px 4px 0; }
+
+    /* Ventana de categorías */
+    dialog { border:none; border-radius:16px; background:var(--tarjeta); color:var(--texto); padding:18px; width:min(92vw,420px); }
+    dialog::backdrop { background:rgba(0,0,0,.4); }
+    .fila-cat { display:flex; gap:8px; align-items:center; margin-bottom:10px; }
+    .fila-cat input[type=text] { font:inherit; padding:10px; border:none; border-radius:10px; background:var(--fondo); color:var(--texto); min-width:0; }
+    .fila-cat .em { width:52px; text-align:center; } .fila-cat .nom { flex:1; }
+    .fila-cat input[type=color] { width:40px; height:36px; border:none; background:none; padding:0; }
+    @media (prefers-reduced-motion: reduce) { * { transition:none !important; } }
+  </style>
+</head>
+
+<body>
+  <!-- ============ 🧱 HTML ============ -->
+  <div class="layout" id="layout">
+  <div class="pestanas">
+    <button id="tab-reg" class="on">📝 Registro</button>
+    <button id="tab-graf">📊 Gráficas</button>
+  </div>
+  <main id="registro">
+    <h1 id="titulo"></h1>
+    <p class="resumen" id="resumen"></p>
+
+    <section class="tarjeta">
+      <div class="mes-barra">
+        <button id="anterior" aria-label="Mes anterior">‹</button>
+        <strong id="nombre-mes"></strong>
+        <button id="siguiente" aria-label="Mes siguiente">›</button>
+      </div>
+      <div class="rejilla" id="rejilla"></div>
+    </section>
+
+    <section class="tarjeta">
+      <div class="atajos" id="atajos"></div>
+      <div class="campos">
+        <input type="text" id="campo" placeholder="¿Qué hiciste?" autocomplete="off">
+        <select id="cat" aria-label="Categoría"></select>
+        <div class="horas" id="horas">De <input type="time" id="ini"> a <input type="time" id="fin"></div>
+        <label class="check" id="fila-atajo"><input type="checkbox" id="chk"> Guardar como atajo</label>
+        <div class="botones">
+          <button class="primario" id="enviar">Agregar</button>
+          <button class="secundario" id="cancelar" hidden>Cancelar</button>
+          <button class="secundario peligro" id="eliminar" hidden>Eliminar</button>
+        </div>
+        <button class="link" id="abrir-cats" style="text-align:left">🗂️ Editar categorías</button>
+      </div>
+    </section>
+
+    <ul id="lista"></ul>
+    <p class="aviso" id="aviso"></p>
+
+    <section class="tarjeta" style="margin-top:16px">
+      <strong>💾 Respaldo</strong>
+      <p class="aviso" id="info-respaldo" style="margin:4px 0 12px"></p>
+      <div class="botones">
+        <button class="secundario" id="exportar" style="flex:1">⬇️ Exportar</button>
+        <button class="secundario" id="importar" style="flex:1">⬆️ Importar</button>
+        <input type="file" id="archivo" accept=".json,application/json" hidden>
+      </div>
+    </section>
+  </main>
+  <aside id="graficas" class="tarjeta panel">
+    <div class="seg">
+      <button data-v="dia">Día</button><button data-v="semana">Semana</button><button data-v="mes">Mes</button>
+    </div>
+    <h2 id="g-titulo"></h2>
+    <div id="grafico"></div>
+  </aside>
+  </div>
+
+  <dialog id="dlg">
+    <h2 style="margin:0 0 14px;font-size:20px">Categorías</h2>
+    <div id="filas-cat"></div>
+    <div class="botones">
+      <button class="secundario" id="nueva-cat">＋ Nueva</button>
+      <button class="primario" id="cerrar">Listo</button>
+    </div>
+  </dialog>
+
+  <!-- ============ ⚙️ JavaScript ============ -->
+  <script>
+    // 1) DATOS INICIALES
+    const CATS = [
+      { id:"estudio",   nombre:"Estudio",   emoji:"📚", color:"#007aff" },
+      { id:"ejercicio", nombre:"Ejercicio", emoji:"💪", color:"#34c759" },
+      { id:"arte",      nombre:"Arte",      emoji:"🎨", color:"#af52de" },
+      { id:"trabajo",   nombre:"Trabajo",   emoji:"💼", color:"#ff9500" },
+      { id:"bienestar", nombre:"Bienestar", emoji:"🧘", color:"#ff2d55" },
+      { id:"personal",  nombre:"Personal",  emoji:"🏠", color:"#8e8e93" }
+    ];
+    const ATAJOS0 = [
+      { id:"a1", texto:"Estudiar",        cat:"estudio" },
+      { id:"a2", texto:"Ir al gimnasio",  cat:"ejercicio" },
+      { id:"a3", texto:"Trabajo",         cat:"trabajo" }
+    ];
+    const DIAS  = ["domingo","lunes","martes","miércoles","jueves","viernes","sábado"];
+    const MESES = ["enero","febrero","marzo","abril","mayo","junio","julio","agosto","septiembre","octubre","noviembre","diciembre"];
+    function mayus(t) { return t.charAt(0).toUpperCase() + t.slice(1); }
+
+    // 2) GUARDADO. estado = { categorias, actividades, atajos }
+    //    actividad = { id, texto, cat, fecha:"2026-10-02", inicio:"18:00", fin:"19:15" }
+    const CLAVE = "mis-metas-v3";
+    function cargar() {
+      try {
+        const g = localStorage.getItem(CLAVE);
+        if (g) return JSON.parse(g);
+        const v2 = localStorage.getItem("mis-metas-v2");     // convertir datos de la versión anterior
+        if (v2) {
+          const o = JSON.parse(v2), acts = [];
+          Object.keys(o.registro).forEach(function (d) {
+            Object.keys(o.registro[d]).forEach(function (id) {
+              const r = o.registro[d][id];
+              const m = o.metas.filter(function (x) { return String(x.id) === id; })[0];
+              if (m && r.inicio && r.fin) acts.push({ id: Date.now() + acts.length, texto: m.texto, cat: m.cat, fecha: d, inicio: r.inicio, fin: r.fin });
+            });
+          });
+          return { categorias: o.categorias, actividades: acts, atajos: ATAJOS0 };
+        }
+      } catch (e) {}
+      return { categorias: CATS, actividades: [], atajos: ATAJOS0 };
+    }
+    function guardar() { try { localStorage.setItem(CLAVE, JSON.stringify(estado)); } catch (e) {} }
+    let estado = cargar();
+
+    // 3) FECHAS Y HORAS
+    function clave(f) { return f.getFullYear() + "-" + String(f.getMonth()+1).padStart(2,"0") + "-" + String(f.getDate()).padStart(2,"0"); }
+    function fechaDeClave(k) { const p = k.split("-"); return new Date(+p[0], +p[1]-1, +p[2]); }
+    function mins(t) { const p = t.split(":"); return +p[0]*60 + +p[1]; }
+    function durMin(a, b) { let d = mins(b) - mins(a); if (d <= 0) d += 1440; return d; }   // pasa la medianoche si es negativo
+    function fmt(m) { const h = Math.floor(m/60), r = m % 60; return (h ? h + " h " : "") + (r || !h ? r + " min" : ""); }
+    const hoy = clave(new Date());
+    let diaElegido = hoy;
+    let mesVisible = new Date(new Date().getFullYear(), new Date().getMonth(), 1);
+
+    // 4) ELEMENTOS Y ESTADO DEL FORMULARIO
+    const el = function (id) { return document.getElementById(id); };
+    const campo = el("campo"), selCat = el("cat"), ini = el("ini"), fin = el("fin"), chk = el("chk");
+    // modo: "nueva" (agregar actividad) | "editar" (cambiar una actividad) | "atajo" (crear/editar atajo)
+    let modo = { t: "nueva", id: null };
+    let editandoAtajos = false;
+
+    function catDe(id) { return estado.categorias.filter(function (c) { return c.id === id; })[0] || estado.categorias[0]; }
+    function delDia(k) { return estado.actividades.filter(function (a) { return a.fecha === k; }).sort(function (a, b) { return mins(a.inicio) - mins(b.inicio); }); }
+
+    // 5) FORMULARIO: se adapta al modo
+    function dibujarCategorias() {
+      const previa = selCat.value;
+      selCat.innerHTML = "";
+      estado.categorias.forEach(function (c) {
+        const o = document.createElement("option"); o.value = c.id; o.textContent = c.emoji + " " + c.nombre; selCat.appendChild(o);
+      });
+      selCat.value = estado.categorias.some(function (c) { return c.id === previa; }) ? previa : estado.categorias[0].id;
+    }
+    function dibujarForm() {
+      el("enviar").textContent = modo.t === "editar" ? "Guardar cambios" : modo.t === "atajo" ? "Guardar atajo" : "Agregar";
+      el("cancelar").hidden = modo.t === "nueva";
+      el("eliminar").hidden = modo.t !== "editar";
+      el("horas").hidden = modo.t === "atajo";
+      el("fila-atajo").hidden = modo.t !== "nueva";
+    }
+    function limpiarForm() { modo = { t: "nueva", id: null }; campo.value = ""; chk.checked = false; dibujarForm(); dibujarAtajos(); }
+
+    // 6) ATAJOS
+    function dibujarAtajos() {
+      const caja = el("atajos"); caja.innerHTML = "";
+      estado.atajos.forEach(function (a) {
+        const c = catDe(a.cat), b = document.createElement("button");
+        b.className = "chip"; b.textContent = c.emoji + " " + a.texto;
+        if (editandoAtajos) {
+          const x = document.createElement("b"); x.textContent = "×"; b.appendChild(x);
+          b.addEventListener("click", function (e) {
+            if (e.target === x) {
+              if (confirm("¿Eliminar el atajo \"" + a.texto + "\"?")) { estado.atajos = estado.atajos.filter(function (z) { return z.id !== a.id; }); guardar(); dibujarAtajos(); }
+              return;
+            }
+            modo = { t: "atajo", id: a.id }; campo.value = a.texto; selCat.value = a.cat; dibujarForm(); campo.focus();
+          });
+        } else {
+          b.addEventListener("click", function () {
+            if (modo.t === "atajo") modo = { t: "nueva", id: null };
+            campo.value = a.texto; selCat.value = a.cat; dibujarForm(); ini.focus();   // solo falta la hora
+          });
+        }
+        caja.appendChild(b);
+      });
+      if (editandoAtajos) {
+        const mas = document.createElement("button"); mas.className = "chip"; mas.textContent = "＋ Nuevo";
+        mas.addEventListener("click", function () { modo = { t: "atajo", id: null }; campo.value = ""; dibujarForm(); campo.focus(); });
+        caja.appendChild(mas);
+      }
+      const ed = document.createElement("button"); ed.className = "link";
+      ed.textContent = editandoAtajos ? "Listo" : "✎ Editar atajos";
+      ed.addEventListener("click", function () { editandoAtajos = !editandoAtajos; dibujarAtajos(); });
+      caja.appendChild(ed);
+    }
+
+    // 7) AGREGAR / GUARDAR
+    function enviar() {
+      const texto = campo.value.trim();
+      if (!texto) { campo.focus(); return; }
+
+      if (modo.t === "atajo") {
+        if (modo.id) { const a = estado.atajos.filter(function (z) { return z.id === modo.id; })[0]; a.texto = texto; a.cat = selCat.value; }
+        else estado.atajos.push({ id: "a" + Date.now(), texto: texto, cat: selCat.value });
+        guardar(); limpiarForm(); return;
+      }
+      if (diaElegido > hoy) { alert("Ese día aún no llega."); return; }
+      if (!ini.value || !fin.value || ini.value === fin.value) { alert("Pon la hora de inicio y la de fin."); return; }
+
+      // ¿Se cruza con otra actividad del mismo día?
+      const a1 = mins(ini.value), b1 = a1 + durMin(ini.value, fin.value);
+      const choque = delDia(diaElegido).filter(function (o) {
+        if (o.id === modo.id) return false;
+        const a2 = mins(o.inicio), b2 = a2 + durMin(o.inicio, o.fin);
+        return a1 < b2 && a2 < b1;
+      })[0];
+      if (choque && !confirm("Se cruza con \"" + choque.texto + "\". ¿Guardar igual?")) return;
+
+      if (modo.t === "editar") {
+        const a = estado.actividades.filter(function (z) { return z.id === modo.id; })[0];
+        a.texto = texto; a.cat = selCat.value; a.inicio = ini.value; a.fin = fin.value;
+      } else {
+        estado.actividades.push({ id: Date.now(), texto: texto, cat: selCat.value, fecha: diaElegido, inicio: ini.value, fin: fin.value });
+        if (chk.checked && !estado.atajos.some(function (z) { return z.texto === texto; }))
+          estado.atajos.push({ id: "a" + Date.now(), texto: texto, cat: selCat.value });
+      }
+      const terminoEn = fin.value;
+      guardar(); limpiarForm();
+      ini.value = modo.t === "nueva" ? terminoEn : ""; fin.value = "";   // la siguiente empieza donde terminó esta
+      dibujar();
+    }
+    el("enviar").addEventListener("click", enviar);
+    el("cancelar").addEventListener("click", function () { limpiarForm(); ini.value = ""; fin.value = ""; });
+    el("eliminar").addEventListener("click", function () {
+      if (!confirm("¿Eliminar esta actividad?")) return;
+      estado.actividades = estado.actividades.filter(function (a) { return a.id !== modo.id; });
+      guardar(); limpiarForm(); ini.value = ""; fin.value = ""; dibujar();
+    });
+    campo.addEventListener("keydown", function (e) { if (e.key === "Enter") enviar(); });
+
+    // 8) CATEGORÍAS (ventana)
+    const dlg = el("dlg");
+    function filasCat() {
+      const caja = el("filas-cat"); caja.innerHTML = "";
+      estado.categorias.forEach(function (c) {
+        const f = document.createElement("div"); f.className = "fila-cat";
+        f.innerHTML = '<input type="text" class="em" maxlength="4"><input type="text" class="nom"><input type="color"><button class="peligro" aria-label="Eliminar categoría">×</button>';
+        const em = f.querySelector(".em"), nom = f.querySelector(".nom"), col = f.querySelector("input[type=color]");
+        em.value = c.emoji; nom.value = c.nombre; col.value = c.color;
+        function cambio() { c.emoji = em.value; c.nombre = nom.value; c.color = col.value; guardar(); dibujarCategorias(); dibujarAtajos(); dibujar(); }
+        em.addEventListener("input", cambio); nom.addEventListener("input", cambio); col.addEventListener("input", cambio);
+        f.querySelector("button").addEventListener("click", function () {
+          if (estado.categorias.length === 1) { alert("Debe quedar al menos una categoría."); return; }
+          const otra = estado.categorias.filter(function (z) { return z.id !== c.id; })[0];
+          const usada = estado.actividades.some(function (a) { return a.cat === c.id; }) || estado.atajos.some(function (a) { return a.cat === c.id; });
+          if (usada && !confirm("Sus actividades y atajos pasarán a \"" + otra.nombre + "\". ¿Continuar?")) return;
+          estado.actividades.forEach(function (a) { if (a.cat === c.id) a.cat = otra.id; });
+          estado.atajos.forEach(function (a) { if (a.cat === c.id) a.cat = otra.id; });
+          estado.categorias = estado.categorias.filter(function (z) { return z.id !== c.id; });
+          guardar(); filasCat(); dibujarCategorias(); dibujarAtajos(); dibujar();
+        });
+        caja.appendChild(f);
+      });
+    }
+    el("abrir-cats").addEventListener("click", function () { filasCat(); dlg.showModal(); });
+    el("cerrar").addEventListener("click", function () { dlg.close(); });
+    el("nueva-cat").addEventListener("click", function () {
+      estado.categorias.push({ id: "c" + Date.now(), nombre: "Nueva", emoji: "🔹", color: "#5ac8fa" });
+      guardar(); filasCat(); dibujarCategorias();
+    });
+
+    // 9) CALENDARIO
+    function dibujarCalendario() {
+      el("nombre-mes").textContent = mayus(MESES[mesVisible.getMonth()]) + " " + mesVisible.getFullYear();
+      const r = el("rejilla"); r.innerHTML = "";
+      ["D","L","M","M","J","V","S"].forEach(function (d) { const c = document.createElement("div"); c.className = "dia-semana"; c.textContent = d; r.appendChild(c); });
+      for (let i = 0; i < mesVisible.getDay(); i++) r.appendChild(document.createElement("div"));
+      const diasMes = new Date(mesVisible.getFullYear(), mesVisible.getMonth()+1, 0).getDate();
+      for (let n = 1; n <= diasMes; n++) {
+        const k = clave(new Date(mesVisible.getFullYear(), mesVisible.getMonth(), n));
+        const tiene = estado.actividades.some(function (a) { return a.fecha === k; });
+        const b = document.createElement("button");
+        b.className = "dia" + (k === hoy ? " hoy" : "") + (k === diaElegido ? " elegido" : "");
+        b.innerHTML = '<span class="num">' + n + '</span><span class="punto' + (tiene ? " con" : "") + '"></span>';
+        b.addEventListener("click", function () { diaElegido = k; limpiarForm(); dibujar(); });
+        r.appendChild(b);
+      }
+    }
+
+    // 10) LISTA DEL DÍA
+    function dibujarLista() {
+      const f = fechaDeClave(diaElegido), acts = delDia(diaElegido), lista = el("lista");
+      el("titulo").textContent = mayus(DIAS[f.getDay()]) + " " + f.getDate() + " de " + MESES[f.getMonth()];
+      el("aviso").textContent = diaElegido > hoy ? "Este día aún no llega, no se puede registrar." : "";
+      lista.innerHTML = acts.length ? "" : '<li class="vacio">Aún no registraste nada este día.</li>';
+      let total = 0;
+      acts.forEach(function (a) {
+        const c = catDe(a.cat), d = durMin(a.inicio, a.fin); total += d;
+        const li = document.createElement("li");
+        li.style.setProperty("--c", c.color);
+        li.innerHTML = '<div class="cuerpo"><div class="t"></div><div class="sub"></div></div>';
+        li.querySelector(".t").textContent = c.emoji + " " + a.texto;
+        li.querySelector(".sub").textContent = a.inicio + " – " + a.fin + " · " + fmt(d);
+        li.addEventListener("click", function () {          // tocar = editar esta actividad
+          modo = { t: "editar", id: a.id };
+          campo.value = a.texto; selCat.value = a.cat; ini.value = a.inicio; fin.value = a.fin;
+          dibujarForm(); campo.focus();
+        });
+        lista.appendChild(li);
+      });
+      el("resumen").textContent = acts.length ? acts.length + (acts.length === 1 ? " actividad" : " actividades") + " · " + fmt(total) : "";
+    }
+
+    // 11) GRÁFICAS (se dibujan con HTML y CSS, sin librerías)
+    let vista = "dia";
+    function esc(t) { return String(t).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;"); }
+    function addDias(k, n) { const f = fechaDeClave(k); f.setDate(f.getDate() + n); return clave(f); }
+    function corto(k) { const f = fechaDeClave(k); return f.getDate() + " " + MESES[f.getMonth()].slice(0, 3); }
+    // minutos por categoría entre dos fechas: { estudio: 90, ejercicio: 45 }
+    function totalesPor(k1, k2) {
+      const t = {};
+      estado.actividades.forEach(function (a) {
+        if (a.fecha >= k1 && a.fecha <= k2) t[a.cat] = (t[a.cat] || 0) + durMin(a.inicio, a.fin);
+      });
+      return t;
+    }
+    function sumar(t) { return Object.keys(t).reduce(function (s, id) { return s + t[id]; }, 0); }
+
+    // Barras horizontales por categoría; "prev" es el periodo anterior para comparar (▲ ▼)
+    function barrasCat(t, prev) {
+      const ids = Object.keys(t).sort(function (a, b) { return t[b] - t[a]; });
+      const max = t[ids[0]];
+      return ids.map(function (id) {
+        const c = catDe(id);
+        let cmp = "";
+        if (prev) {
+          const d = t[id] - (prev[id] || 0);
+          if (d !== 0) cmp = '<span class="cmp ' + (d > 0 ? "sube" : "baja") + '">' + (d > 0 ? "▲ " : "▼ ") + fmt(Math.abs(d)) + "</span>";
+        }
+        return '<div class="fila-barra"><div>' + esc(c.emoji) + " " + esc(c.nombre) + '</div>' +
+               '<div class="pista"><div class="barra" style="width:' + (t[id] / max * 100) + "%;background:" + c.color + '"></div></div>' +
+               '<div class="val">' + fmt(t[id]) + cmp + "</div></div>";
+      }).join("");
+    }
+
+    // Columnas apiladas: un día por columna, cada categoría con su color
+    function columnasSemana(ini) {
+      const dias = [], tot = [];
+      for (let i = 0; i < 7; i++) { const k = addDias(ini, i); dias.push(k); tot.push(totalesPor(k, k)); }
+      const max = Math.max(60, Math.max.apply(null, tot.map(sumar)));
+      return '<div class="cols">' + dias.map(function (k, i) {
+        const total = sumar(tot[i]);
+        const trozos = Object.keys(tot[i]).map(function (id) {
+          return '<div style="height:' + (tot[i][id] / max * 100) + "%;background:" + catDe(id).color + '"></div>';
+        }).join("");
+        return '<div class="col' + (k === diaElegido ? " sel" : "") + '" data-k="' + k + '">' +
+               '<div class="hh">' + (total ? (total / 60).toFixed(1) + " h" : "") + "</div>" +
+               '<div class="pila">' + trozos + "</div><div class=\"dl\">" + ["D","L","M","M","J","V","S"][i] + "</div></div>";
+      }).join("") + "</div>";
+    }
+
+    function dibujarGraficas() {
+      const k = diaElegido, f = fechaDeClave(k), cont = el("grafico");
+      document.querySelectorAll(".seg button").forEach(function (b) { b.classList.toggle("on", b.dataset.v === vista); });
+      let titulo, t, html = "";
+
+      if (vista === "dia") {
+        titulo = mayus(DIAS[f.getDay()]) + " " + f.getDate() + " de " + MESES[f.getMonth()];
+        t = totalesPor(k, k);
+        if (sumar(t)) html = barrasCat(t, null) + '<p class="total">Total: ' + fmt(sumar(t)) + "</p>";
+      } else if (vista === "semana") {
+        const ini = addDias(k, -f.getDay()), fin = addDias(ini, 6);
+        titulo = "Semana del " + corto(ini) + " al " + corto(fin);
+        t = totalesPor(ini, fin);
+        if (sumar(t)) html = columnasSemana(ini) + barrasCat(t, totalesPor(addDias(ini, -7), addDias(ini, -1))) + '<p class="total">Total: ' + fmt(sumar(t)) + " · comparado con la semana anterior</p>";
+      } else {
+        const ini = clave(new Date(f.getFullYear(), f.getMonth(), 1)), fin = clave(new Date(f.getFullYear(), f.getMonth() + 1, 0));
+        titulo = mayus(MESES[f.getMonth()]) + " " + f.getFullYear();
+        t = totalesPor(ini, fin);
+        if (sumar(t)) {
+          const pIni = clave(new Date(f.getFullYear(), f.getMonth() - 1, 1)), pFin = clave(new Date(f.getFullYear(), f.getMonth(), 0));
+          const activos = {};
+          estado.actividades.forEach(function (a) { if (a.fecha >= ini && a.fecha <= fin) activos[a.fecha] = 1; });
+          const transcurridos = fin > hoy ? fechaDeClave(hoy).getDate() : fechaDeClave(fin).getDate();
+          html = barrasCat(t, totalesPor(pIni, pFin)) + '<p class="total">Total: ' + fmt(sumar(t)) + " · " + Object.keys(activos).length + " de " + transcurridos + " días con actividad</p>";
+        }
+      }
+      el("g-titulo").textContent = titulo;
+      cont.innerHTML = html || '<p class="vacio-g">Sin actividades en este periodo.</p>';
+
+      cont.querySelectorAll(".col").forEach(function (c) {     // tocar una columna = elegir ese día
+        c.addEventListener("click", function () {
+          diaElegido = c.dataset.k;
+          const d = fechaDeClave(diaElegido); mesVisible = new Date(d.getFullYear(), d.getMonth(), 1);
+          limpiarForm(); dibujar();
+        });
+      });
+    }
+
+    document.querySelectorAll(".seg button").forEach(function (b) {
+      b.addEventListener("click", function () { vista = b.dataset.v; dibujarGraficas(); });
+    });
+    // Pestañas del celular
+    function verPestana(graf) {
+      el("layout").classList.toggle("v-graf", graf);
+      el("tab-reg").classList.toggle("on", !graf); el("tab-graf").classList.toggle("on", graf);
+    }
+    el("tab-reg").addEventListener("click", function () { verPestana(false); });
+    el("tab-graf").addEventListener("click", function () { verPestana(true); });
+
+    function dibujar() { dibujarCalendario(); dibujarLista(); dibujarGraficas(); }
+    el("anterior").addEventListener("click", function () { mesVisible = new Date(mesVisible.getFullYear(), mesVisible.getMonth()-1, 1); dibujarCalendario(); });
+    el("siguiente").addEventListener("click", function () { mesVisible = new Date(mesVisible.getFullYear(), mesVisible.getMonth()+1, 1); dibujarCalendario(); });
+
+    // 12) RESPALDO: exportar e importar un archivo .json
+    function dibujarRespaldo() {
+      const r = estado.respaldo, info = el("info-respaldo");
+      if (!r) { info.textContent = "Aún no has hecho un respaldo. Tus datos viven solo en este navegador."; return; }
+      const dias = Math.round((fechaDeClave(hoy) - fechaDeClave(r)) / 86400000);
+      info.textContent = "Último respaldo: " + corto(r) + (dias > 7 ? " (hace más de una semana)" : "");
+    }
+    el("exportar").addEventListener("click", function () {
+      estado.respaldo = hoy; guardar();
+      const contenido = JSON.stringify({ app: "mi-diario", version: 3, datos: estado }, null, 2);
+      const blob = new Blob([contenido], { type: "application/json" });     // el archivo en memoria
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");                               // un enlace invisible que "descarga"
+      a.href = url; a.download = "mi-diario-" + hoy + ".json";
+      document.body.appendChild(a); a.click(); a.remove();
+      URL.revokeObjectURL(url);
+      dibujarRespaldo();
+    });
+    el("importar").addEventListener("click", function () { el("archivo").click(); });
+    el("archivo").addEventListener("change", function () {
+      const archivo = this.files[0];
+      if (!archivo) return;
+      const lector = new FileReader();
+      lector.onload = function () {
+        try {
+          const o = JSON.parse(lector.result), d = o.datos || o;
+          if (!Array.isArray(d.categorias) || !d.categorias.length || !Array.isArray(d.actividades) || !Array.isArray(d.atajos)) throw new Error("formato");
+          if (!confirm("El archivo tiene " + d.actividades.length + " actividades. Se reemplazarán tus datos actuales (" + estado.actividades.length + "). ¿Continuar?")) return;
+          estado = d; guardar(); limpiarForm(); dibujarCategorias(); dibujarAtajos(); dibujar(); dibujarRespaldo();
+        } catch (e) {
+          alert("No se pudo leer el archivo. Usa un respaldo exportado desde esta app.");
+        }
+      };
+      lector.readAsText(archivo);
+      this.value = "";                                                     // permite elegir el mismo archivo otra vez
+    });
+
+    // 13) PWA: registrar el service worker (solo funciona en internet con https, no al abrir el archivo directo)
+    if ("serviceWorker" in navigator) {
+      window.addEventListener("load", function () { navigator.serviceWorker.register("sw.js").catch(function () {}); });
+    }
+
+    dibujarCategorias(); dibujarForm(); dibujarAtajos(); dibujar(); dibujarRespaldo();
+  </script>
+</body>
+</html>
